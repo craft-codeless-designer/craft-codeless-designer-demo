@@ -1,20 +1,19 @@
-<!-- https://thenounproject.com/search/?q=+technology&i=965233 -->
-<p align="center">
-    <img width="150" src="./src/assets/doc-imgs/ccd-icon.svg">
-</p>
+<h1 align="center">Craft Codeless Designer Demo</h1>
 
-<h1 align="center">Craft Codeless Designer</h1>
+此项目用来演示 Craft Codeless Designer（ 缩写成 CCD ） 的用法。
 
-Craft Codeless Designer（ 缩写成 CCD ） 是一个轻量级的 codeless designer，基于 craftjs 构建。
+CCD 是一个轻量级的页面设计器，基于 craftjs 构建。
 
-## 1.实例项目的用法
+## 1.用法
 
-- clone this repo
+- git clone 此项目
 - yarn install
 - npm start
 
-Craft Codeless Designer 源码：https://github.com/craft-codeless-designer/craft-codeless-designer
+## 2.服务端代码
 
-## 2. License
+此项目依赖后端服务，对应的 Koa 服务端代码在此项目中：https://gitee.com/craft-codeless-designer/craft-codeless-designer-server-koa
+
+## 3. License
 
 [MIT licensed](./LICENSE).
