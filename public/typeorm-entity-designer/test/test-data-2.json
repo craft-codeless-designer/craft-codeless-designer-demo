@@ -1,0 +1,39 @@
+{
+  "columns": {
+    "age": {
+      "name": "age",
+      "type": "int"
+    },
+    "email": {
+      "length": 256,
+      "name": "email",
+      "type": "varchar"
+    },
+    "id": {
+      "generated": true,
+      "name": "id",
+      "primary": true,
+      "type": "int"
+    },
+    "password": {
+      "length": 256,
+      "name": "password",
+      "type": "varchar"
+    },
+    "userName": {
+      "length": 120,
+      "name": "userName",
+      "type": "varchar"
+    }
+  },
+  "name": "User",
+  "relations": {
+    "roles": {
+      "joinTable": {
+        "target": "Role"
+      },
+      "target": "Role",
+      "type": "many-to-many"
+    }
+  }
+}
