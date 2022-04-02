@@ -15,6 +15,10 @@ CCD 是一个轻量级的页面设计器，基于 craftjs 构建。
 - yarn install
 - npm start
 
-## 3. License
+## 3.项目依赖关系
+
+TODO:补充项目依赖关系图
+
+## 4.License
 
 [MIT licensed](./LICENSE).
