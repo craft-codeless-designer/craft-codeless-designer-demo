@@ -1,5 +1,6 @@
 import { Button, Checkbox, Form, Input, InputNumber, message, Popconfirm, Select, Space, Table } from 'antd';
 import 'antd/dist/antd.css';
+import { Entity } from 'ice-entity-designer';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import './index.scss';
 
@@ -160,10 +161,12 @@ const EditableCell = ({ title, editable, inputType, rules, children, dataIndex, 
 };
 
 class EntityPropertyEditor extends React.Component {
+  ice; //ice 实例
   entityNameFormRef = React.createRef();
+
   constructor(props) {
     super(props);
-    this.canvas = props.canvas;
+    this.ice = props.ice;
     this.columns = [
       {
         title: 'Column Name',
@@ -268,30 +271,28 @@ class EntityPropertyEditor extends React.Component {
   }
 
   doSave() {
-    //TODO:提示，save 动作将会删除原有的所有内容。
-    //获取Form中的数据
     const formInstance = this.entityNameFormRef.current;
     formInstance
       .validateFields()
       .then(values => {
         let entityName = values.entityName;
-        //校验：同一个数据库中不允许表名重复，所以这里的 entityName 必须唯一
-        let allObjects = this.canvas.getObjects();
-        for (let index = 0; index < allObjects.length; index++) {
-          const element = allObjects[index];
-          if (element.title === entityName) {
+        //校验规则-1：同一个数据库中不允许表名重复，所以这里的 entityName 必须唯一
+        let componentList = this.ice.childNodes;
+        for (let i = 0; i < componentList.length; i++) {
+          const component = componentList[i];
+          if (component.state.entityName === entityName) {
             message.error('数据库中不允许重复的表名， Entity Name 必须唯一。');
             return;
           }
         }
 
-        //校验：获取表格中的数据
+        //校验规则-2：获取表格中的数据
         if (!this.state.dataSource || !this.state.dataSource.length) {
           message.error('Entity 至少需要定义一个字段');
           return;
         }
 
-        //TODO:校验，在同一个实体类中，字段名称不能重复
+        //TODO:校验规则-3，在同一个实体类中，字段名称不能重复（因为数据库中同一个表不能有重复的字段名称）
         let fields = [];
         this.state.dataSource.map((item, index) => {
           let field = {
@@ -307,18 +308,17 @@ class EntityPropertyEditor extends React.Component {
           fields.push(field);
         });
 
-        let fabric = window.fabric;
-        let newEntity = new fabric.Entity([], {
-          width: 200,
-          height: 100,
-          fill: '#fee',
-          stroke: '#000',
-          padding: 5,
-          linkable: true,
-          title: entityName,
+        let entity = new Entity({
+          left: Math.floor(100 * Math.random()),
+          top: Math.floor(100 * Math.random()),
+          width: 150,
+          height: 200,
+          showMinBoundingBox: true,
+          showMaxBoundingBox: true,
+          entityName: entityName,
           fields: [...fields],
         });
-        this.canvas.add(newEntity);
+        this.ice.addChild(entity);
 
         formInstance.resetFields();
         this.setState({
@@ -376,7 +376,7 @@ class EntityPropertyEditor extends React.Component {
           ref={this.entityNameFormRef}
         >
           <Form.Item
-            label="Entity Name（对应数据库中的表名）"
+            label="Entity Name"
             name="entityName"
             rules={[
               {
@@ -413,6 +413,17 @@ class EntityPropertyEditor extends React.Component {
           <Button onClick={this.doSave.bind(this)} type="primary">
             Save
           </Button>
+        </Space>
+        <Space
+          direction="vertical"
+          wrap
+          size={[2, 2]}
+          style={{
+            marginTop: 5,
+          }}
+        >
+          <p>1. EntityName 将会用于生成实体类、CRUD接口、SQL 脚本，建议采用规范的大驼峰法则命名，否则自动生成的代码和 SQL 语句无法运行。</p>
+          <p>2. 当前版本生成的 Schema 只支持 MySQL，后续版本会升级，支持更多数据库。</p>
         </Space>
       </div>
     );

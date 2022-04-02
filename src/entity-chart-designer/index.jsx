@@ -1,6 +1,8 @@
 import { FileDoneOutlined, ForkOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Col, Layout, message, Modal, Row, Space } from 'antd';
 import 'antd/dist/antd.css';
+import { Entity, Relation, toSchemaObject, toSchemaString } from 'ice-entity-designer';
+import { ICE } from 'ice-render';
 import React from 'react';
 import EntityPropertyEditor from './EntityPropertyEditor';
 import './index.scss';
@@ -12,6 +14,7 @@ const { Header, Content } = Layout;
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class EntityChartDesigner extends React.Component {
+  ice; //ice 实例
   entityNameFormRef = React.createRef();
 
   constructor(props) {
@@ -40,35 +43,14 @@ export default class EntityChartDesigner extends React.Component {
       id: params.id,
     });
 
+    this.ice = new ICE().init('lower-canvas');
     setTimeout(() => {
-      let fabric = window.fabric;
-      let canvas = new fabric.Canvas('lower-canvas', {
-        preserveObjectStacking: true,
-      });
-
-      //添加事件监听
-      canvas.on('mouse:dblclick', options => {
-        this.objDbClickHandler(options);
-      });
-      this.canvas = canvas;
-
-      document.addEventListener('keydown', event => {
-        this.keyDownHandler(event);
-      });
-
-      //窗口变化时同步修改 canvas 尺寸
-      this.syncCanvasSize();
-      window.addEventListener('resize', () => {
-        this.syncCanvasSize();
-      });
-
       this.loadChartData(params.id);
     }, 0);
     return;
   }
 
   objDbClickHandler(options) {
-    console.log(options);
     if (options.target && options.target.type) {
       let target = options.target;
       let type = options.target.type;
@@ -118,13 +100,20 @@ export default class EntityChartDesigner extends React.Component {
     }
   }
 
+  /**
+   * FIXME:增加容错处理，数据可能不存在，或者解析会出错。
+   * @param {*} id
+   */
   loadChartData(id) {
     fetch(`/api/entity-chart/${id}`)
       .then(response => {
         return response.json();
       })
       .then(json => {
-        this.canvas.loadFromJSON(JSON.parse(json.chartData));
+        //!先在 ice 实例上注册类型，然后才能从 JSON 字符串反解析出图形对象，@see https://gitee.com/ice-render/ice-render
+        this.ice.registerType('Entity', Entity);
+        this.ice.registerType('Relation', Relation);
+        this.ice.fromJSONString(json.chartData);
       });
   }
 
@@ -136,13 +125,15 @@ export default class EntityChartDesigner extends React.Component {
     this.canvas.renderAll();
   }
 
+  /**
+   * 把图形数据、Schema 数据保存到服务端，图形数据和 Schema 数据都是 JSON 字符串，分别存储在 chartData 和 schemaData 字段中。
+   */
   saveChartData() {
     let postData = {
       id: this.state.id,
-      chartData: JSON.stringify(this.canvas.toObject()),
-      entitySchemaJson: JSON.stringify(this.canvas.toEntityObject()),
+      chartData: this.ice.toJSONObject(),
+      entitySchemaJson: toSchemaObject(this.ice.childNodes),
     };
-    console.log(postData);
 
     fetch('/api/entity-chart/update-chart-data', {
       method: 'POST',
@@ -173,11 +164,16 @@ export default class EntityChartDesigner extends React.Component {
   renderSchemaModal() {
     return (
       <Modal
-        title="TypeORM 将会根据这份 Schema 自动在 MySQL 中建表（改表）"
+        title="服务端将会解析这份 Schema 自动在 MySQL 中建表/改表"
         width={800}
         centered={true}
         visible={true}
-        onOk={() => {}}
+        onOk={() => {
+          this.setState({
+            ...this.state,
+            showSchemaModal: false,
+          });
+        }}
         onCancel={() => {
           this.setState({
             ...this.state,
@@ -185,7 +181,7 @@ export default class EntityChartDesigner extends React.Component {
           });
         }}
       >
-        {JSON.stringify(this.canvas.toEntityObject())}
+        {toSchemaString(this.ice.childNodes)}
       </Modal>
     );
   }
@@ -193,7 +189,7 @@ export default class EntityChartDesigner extends React.Component {
   renderNewEntityModal() {
     return (
       <Modal
-        title="新建/编辑 Entity （当前版本生成的 Schema 只支持 MySQL，后续升级改进）"
+        title="新建/编辑 Entity"
         width={800}
         centered={true}
         visible={true}
@@ -207,7 +203,7 @@ export default class EntityChartDesigner extends React.Component {
         }}
       >
         <EntityPropertyEditor
-          canvas={this.canvas}
+          ice={this.ice}
           onSave={() => {
             this.setState({
               ...this.state,
@@ -222,7 +218,7 @@ export default class EntityChartDesigner extends React.Component {
   renderNewRelationModal() {
     return (
       <Modal
-        title="新建/编辑 Relation （当前版本生成的 Schema 只支持 MySQL，后续升级改进）"
+        title="新建/编辑 Relation"
         width={800}
         centered={true}
         visible={true}
@@ -236,7 +232,7 @@ export default class EntityChartDesigner extends React.Component {
         }}
       >
         <RelationPropertyEditor
-          canvas={this.canvas}
+          ice={this.ice}
           onSave={() => {
             this.setState({
               ...this.state,
@@ -295,9 +291,9 @@ export default class EntityChartDesigner extends React.Component {
                 <div
                   id="canvas-container"
                   className="site-layout-background"
-                  style={{ padding: 0, margin: 0, width: '100%', height: 'calc(100vh - 65px)', overflow: 'hidden' }}
+                  style={{ padding: 0, margin: 0, width: '100%', border: 'none', height: 'calc(100vh - 65px)', overflow: 'hidden' }}
                 >
-                  <canvas id="lower-canvas" width="1024px" height="768px"></canvas>
+                  <canvas id="lower-canvas" width="1024" height="768"></canvas>
                 </div>
               </Col>
             </Row>
