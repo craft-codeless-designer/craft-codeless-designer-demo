@@ -44,27 +44,30 @@ export default class EntityChartDesigner extends React.Component {
     });
 
     this.ice = new ICE().init('lower-canvas');
+    this.ice.evtBus.on('dblclick', this.dbClickHandler, this);
     setTimeout(() => {
       this.loadChartData(params.id);
     }, 0);
     return;
   }
 
-  objDbClickHandler(options) {
-    if (options.target && options.target.type) {
-      let target = options.target;
-      let type = options.target.type;
-      if (type === 'Entity') {
-        this.setState({
-          ...this.state,
-          isNewEntityModalVisible: true,
-        });
-      } else if (type === 'Relation') {
-        this.setState({
-          ...this.state,
-          isNewRelationModalVisible: true,
-        });
-      }
+  dbClickHandler(evt) {
+    let component = evt.param.component;
+    if (!component) {
+      return;
+    }
+
+    let typeName = component.constructor.name;
+    if (typeName === 'Entity') {
+      this.setState({
+        ...this.state,
+        isNewEntityModalVisible: true,
+      });
+    } else if (typeName === 'Relation') {
+      this.setState({
+        ...this.state,
+        isNewRelationModalVisible: true,
+      });
     }
   }
 
