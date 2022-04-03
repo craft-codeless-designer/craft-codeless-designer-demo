@@ -12,28 +12,46 @@ export default class RelationPropertyEditor extends Component {
   constructor(props) {
     super(props);
     this.ice = props.ice;
-    this.state = {
-      entities: [],
-      relationType: 'one-to-one', //one-to-one, one-to-many, many-to-one, many-to-many
-      targetEntityProperties: [], //one-to-one 的时候引用的目标 Entity 的所有属性
-    };
-  }
 
-  /**
-   * @see https://reactjs.org/docs/react-component.html#static-getderivedstatefromprops
-   */
-  static getDerivedStateFromProps(props, state) {
-    let ice = props.ice;
-    let allComponents = ice.childNodes;
+    let allComponents = this.ice.childNodes;
     let entities = [];
     allComponents.map(item => {
       item.constructor.name === 'Entity' && entities.push(item);
     });
-    state = {
-      ...state,
-      entities: [...entities],
-    };
-    return state;
+
+    if (props.currentRelation) {
+      let fromId = props.currentRelation.state.links.start.id;
+      let toId = props.currentRelation.state.links.end.id;
+      let relationType = props.currentRelation.state.relationType; //one-to-one, one-to-many, many-to-one, many-to-many
+      let referencedColumnName = props.currentRelation.state.referencedColumnName;
+      let targetEntityProperties = []; //one-to-one 的时候引用的目标 Entity 的所有属性
+
+      for (let i = 0; i < entities.length; i++) {
+        let item = entities[i];
+        if (item.state.id === toId) {
+          targetEntityProperties = [...item.state.fields];
+          break;
+        }
+      }
+
+      this.state = {
+        entities: [...entities],
+        fromId,
+        toId,
+        relationType: relationType,
+        referencedColumnName: referencedColumnName,
+        targetEntityProperties: targetEntityProperties,
+      };
+    } else {
+      this.state = {
+        entities: [...entities],
+        fromId: '',
+        toId: '',
+        relationType: 'one-to-one',
+        referencedColumnName: '',
+        targetEntityProperties: [],
+      };
+    }
   }
 
   doSave() {
@@ -46,30 +64,42 @@ export default class RelationPropertyEditor extends Component {
           return;
         }
 
-        let param = {
-          left: 0,
-          top: 0,
-          startPoint: [300, 300],
-          endPoint: [400, 400],
-          style: {
-            strokeStyle: '#08ee00',
-            fillStyle: '#008000',
-            lineWidth: 2,
-          },
-          arrow: 'end',
-          links: { start: { id: values.fromEntity, position: 'B' }, end: { id: values.toEntity, position: 'B' } },
-          relationType: values.relationType,
-        };
+        if (this.props.currentRelation) {
+          let param = {
+            links: { start: { id: values.fromEntity, position: 'B' }, end: { id: values.toEntity, position: 'B' } },
+            relationType: values.relationType,
+          };
 
-        //只有 one-to-one 时需要设置引用字段
-        if (values.relationType === 'one-to-one') {
-          param.referencedColumnName = values.toProperty;
+          //只有 one-to-one 时需要设置引用字段
+          if (values.relationType === 'one-to-one') {
+            param.referencedColumnName = values.toProperty;
+          }
+
+          this.props.currentRelation.setState(param);
+        } else {
+          let param = {
+            left: 0,
+            top: 0,
+            startPoint: [300, 300],
+            endPoint: [400, 400],
+            style: {
+              strokeStyle: '#08ee00',
+              fillStyle: '#008000',
+              lineWidth: 2,
+            },
+            arrow: 'end',
+            links: { start: { id: values.fromEntity, position: 'B' }, end: { id: values.toEntity, position: 'B' } },
+            relationType: values.relationType,
+          };
+
+          //只有 one-to-one 时需要设置引用字段
+          if (values.relationType === 'one-to-one') {
+            param.referencedColumnName = values.toProperty;
+          }
+
+          let relation = new Relation(param);
+          this.ice.addChild(relation);
         }
-
-        console.log(param);
-
-        let relation = new Relation(param);
-        this.ice.addChild(relation);
         this.props.onSave && this.props.onSave();
       })
       .catch(errorInfo => {
@@ -87,17 +117,12 @@ export default class RelationPropertyEditor extends Component {
 
   onTargetEntityChange(value) {
     for (let i = 0; i < this.state.entities.length; i++) {
-      let item = this.state.entities[i];
-      if (item.state.id === value) {
-        this.setState(
-          {
-            ...this.state,
-            targetEntityProperties: JSON.parse(JSON.stringify(item.state.fields)),
-          },
-          () => {
-            console.log(this.state.targetEntityProperties);
-          },
-        );
+      let entity = this.state.entities[i];
+      if (entity.state.id === value) {
+        this.setState({
+          ...this.state,
+          targetEntityProperties: [...entity.state.fields],
+        });
         break;
       }
     }
@@ -106,7 +131,16 @@ export default class RelationPropertyEditor extends Component {
   render() {
     return (
       <>
-        <Form layout="vertical" ref={this.relationFormRef} initialValues={{ relationType: this.state.relationType }}>
+        <Form
+          layout="vertical"
+          ref={this.relationFormRef}
+          initialValues={{
+            relationType: this.state.relationType,
+            fromEntity: this.state.fromId,
+            toEntity: this.state.toId,
+            toProperty: this.state.referencedColumnName,
+          }}
+        >
           <Form.Item
             name="relationType"
             label="Relation Type"
@@ -138,7 +172,11 @@ export default class RelationPropertyEditor extends Component {
           >
             <Select>
               {this.state.entities.map(item => {
-                return <Select.Option value={item.state.id}>{item.state.entityName}</Select.Option>;
+                return (
+                  <Select.Option value={item.state.id} key={Math.random()}>
+                    {item.state.entityName}
+                  </Select.Option>
+                );
               })}
             </Select>
           </Form.Item>
@@ -154,8 +192,12 @@ export default class RelationPropertyEditor extends Component {
             ]}
           >
             <Select onChange={this.onTargetEntityChange.bind(this)}>
-              {this.state.entities.map(item => {
-                return <Select.Option value={item.state.id}>{item.state.entityName}</Select.Option>;
+              {this.state.entities.map(entity => {
+                return (
+                  <Select.Option value={entity.state.id} key={Math.random()}>
+                    {entity.state.entityName}
+                  </Select.Option>
+                );
               })}
             </Select>
           </Form.Item>
@@ -173,7 +215,11 @@ export default class RelationPropertyEditor extends Component {
             >
               <Select>
                 {this.state.targetEntityProperties.map((item, index) => {
-                  return <Select.Option value={item.name}>{item.name}</Select.Option>;
+                  return (
+                    <Select.Option value={item.name} key={Math.random()}>
+                      {item.name}
+                    </Select.Option>
+                  );
                 })}
               </Select>
             </Form.Item>

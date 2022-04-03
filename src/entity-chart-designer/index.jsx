@@ -100,7 +100,7 @@ export default class EntityChartDesigner extends React.Component {
       chartData: this.ice.toJSONObject(),
       entitySchemaJson: toSchemaObject(this.ice.childNodes),
     };
-
+    console.log(postData);
     fetch('/api/entity-chart/update-chart-data', {
       method: 'POST',
       headers: {
@@ -200,6 +200,7 @@ export default class EntityChartDesigner extends React.Component {
       >
         <RelationPropertyEditor
           ice={this.ice}
+          currentRelation={this.currentEntity}
           onSave={() => {
             this.setState({
               ...this.state,
