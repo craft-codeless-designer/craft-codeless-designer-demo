@@ -38,13 +38,14 @@ export default class EntityChartDesigner extends React.Component {
       return;
     }
 
+    this.ice = new ICE().init('lower-canvas');
+    this.ice.evtBus.on('dblclick', this.dbClickHandler, this);
+
     this.setState({
       ...this.state,
       id: params.id,
     });
 
-    this.ice = new ICE().init('lower-canvas');
-    this.ice.evtBus.on('dblclick', this.dbClickHandler, this);
     setTimeout(() => {
       this.loadChartData(params.id);
     }, 0);
@@ -71,38 +72,6 @@ export default class EntityChartDesigner extends React.Component {
     }
   }
 
-  keyDownHandler(event) {
-    //delete
-    if (event.keyCode === 46) {
-      let activeObjects = this.canvas.getActiveObjects();
-      if (!activeObjects || !activeObjects.length) {
-        message.info('请选中需要删除的对象。');
-        return;
-      }
-
-      //连接线不能独立存在，会导致数据库执行报错
-      //删除 Entity 时需要把连接线删除
-      //删除连接线时，需要重新设置 Entity 上的 relation 关系
-      //所以，先尝试删除连接线，再删除其它对象
-      activeObjects.map((item, index) => {
-        if (item.type === 'Relation') {
-          item.removeLinkFrom();
-          item.removeLinkTo();
-        } else if (item.type === 'Entity') {
-          for (let p in item.inLinks) {
-            item.inLinks[p].removeLinkto();
-          }
-          for (let p in item.outLinks) {
-            item.outLinks[p].removeLinkFrom();
-          }
-        }
-        this.canvas.remove(item);
-      });
-
-      this.canvas.discardActiveObject().renderAll();
-    }
-  }
-
   /**
    * FIXME:增加容错处理，数据可能不存在，或者解析会出错。
    * @param {*} id
@@ -118,14 +87,6 @@ export default class EntityChartDesigner extends React.Component {
         this.ice.registerType('Relation', Relation);
         this.ice.fromJSONString(json.chartData);
       });
-  }
-
-  syncCanvasSize() {
-    let width = document.getElementById('canvas-container').clientWidth;
-    let height = document.getElementById('canvas-container').clientHeight;
-    this.canvas.setWidth(width);
-    this.canvas.setHeight(height);
-    this.canvas.renderAll();
   }
 
   /**
