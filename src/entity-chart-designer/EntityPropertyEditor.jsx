@@ -194,7 +194,7 @@ class EntityPropertyEditor extends React.Component {
       },
       {
         title: 'PK?',
-        dataIndex: 'isPrimary',
+        dataIndex: 'primary',
         editable: true,
         inputType: 'Checkbox',
         render: (text, record, index) => {
@@ -203,7 +203,7 @@ class EntityPropertyEditor extends React.Component {
       },
       {
         title: 'Not Null?',
-        dataIndex: 'notNull',
+        dataIndex: 'nullable',
         editable: true,
         inputType: 'Checkbox',
         render: (text, record, index) => {
@@ -212,7 +212,7 @@ class EntityPropertyEditor extends React.Component {
       },
       {
         title: 'Auto Increment?',
-        dataIndex: 'autoIncre',
+        dataIndex: 'generated',
         editable: true,
         inputType: 'Checkbox',
         render: (text, record, index) => {
@@ -230,16 +230,31 @@ class EntityPropertyEditor extends React.Component {
           ) : null,
       },
     ];
-    this.state = {
-      dataSource: [],
-      count: 0,
-    };
+
+    if (this.props.currentEntity) {
+      let { entityName, fields } = this.props.currentEntity.state;
+      let len = fields.length;
+      this.state = {
+        entityName: entityName,
+        dataSource: [...fields],
+        count: len,
+      };
+    } else {
+      this.state = {
+        entityName: '',
+        dataSource: [],
+        count: 0,
+      };
+    }
   }
 
   handleDelete(key) {
-    const dataSource = [...this.state.dataSource];
+    let dataSource = [...this.state.dataSource];
+    dataSource = dataSource.filter(item => item.key !== key);
+    let len = dataSource.length;
     this.setState({
-      dataSource: dataSource.filter(item => item.key !== key),
+      dataSource: dataSource,
+      count: len,
     });
   }
 
@@ -250,9 +265,9 @@ class EntityPropertyEditor extends React.Component {
       name: `Column Name (required)`,
       type: 'varchar',
       length: '128',
-      isPrimary: false,
-      notNull: false,
-      autoIncre: false,
+      primary: false,
+      nullable: false,
+      generated: false,
     };
     this.setState({
       dataSource: [...dataSource, newData],
@@ -261,12 +276,14 @@ class EntityPropertyEditor extends React.Component {
   }
 
   handleCommit(row) {
-    const newData = [...this.state.dataSource];
-    const index = newData.findIndex(item => row.key === item.key);
-    const item = newData[index];
-    newData.splice(index, 1, { ...item, ...row });
+    const newArr = [...this.state.dataSource];
+    const index = newArr.findIndex(item => row.key === item.key);
+    const item = newArr[index];
+    newArr.splice(index, 1, { ...item, ...row });
+    let len = newArr.length;
     this.setState({
-      dataSource: newData,
+      dataSource: newArr,
+      count: len,
     });
   }
 
@@ -280,7 +297,7 @@ class EntityPropertyEditor extends React.Component {
         let componentList = this.ice.childNodes;
         for (let i = 0; i < componentList.length; i++) {
           const component = componentList[i];
-          if (component.state.entityName === entityName) {
+          if (component !== this.props.currentEntity && component.state.entityName === entityName) {
             message.error('数据库中不允许重复的表名， Entity Name 必须唯一。');
             return;
           }
@@ -293,14 +310,14 @@ class EntityPropertyEditor extends React.Component {
         }
 
         //TODO:校验规则-3，在同一个实体类中，字段名称不能重复（因为数据库中同一个表不能有重复的字段名称）
-        let fields = [];
+        const fields = [];
         this.state.dataSource.map((item, index) => {
           let field = {
             name: item.name,
             type: item.type,
-            primary: item.isPrimary,
-            generated: item.autoIncre,
-            nullable: !item.notNull,
+            primary: item.primary,
+            generated: item.generated,
+            nullable: !item.nullable,
           };
           if (item.length) {
             field.length = parseInt(item.length);
@@ -308,17 +325,25 @@ class EntityPropertyEditor extends React.Component {
           fields.push(field);
         });
 
-        let entity = new Entity({
-          left: Math.floor(100 * Math.random()),
-          top: Math.floor(100 * Math.random()),
-          width: 150,
-          height: 200,
-          showMinBoundingBox: true,
-          showMaxBoundingBox: true,
-          entityName: entityName,
-          fields: [...fields],
-        });
-        this.ice.addChild(entity);
+        //如果 this.props 上存在 currentEntity ，表示为更新操作，否则为新增操作
+        if (this.props.currentEntity) {
+          this.props.currentEntity.setState({
+            entityName: entityName,
+            fields: [...fields],
+          });
+        } else {
+          let entity = new Entity({
+            left: Math.floor(100 * Math.random()),
+            top: Math.floor(100 * Math.random()),
+            width: 150,
+            height: 200,
+            showMinBoundingBox: true,
+            showMaxBoundingBox: true,
+            entityName: entityName,
+            fields: [...fields],
+          });
+          this.ice.addChild(entity);
+        }
 
         formInstance.resetFields();
         this.setState({
@@ -335,7 +360,7 @@ class EntityPropertyEditor extends React.Component {
   }
 
   render() {
-    const { dataSource } = this.state;
+    const { entityName, dataSource } = this.state;
 
     const components = {
       body: {
@@ -387,6 +412,7 @@ class EntityPropertyEditor extends React.Component {
                 message: '请输入 Entity 名称，4-12 个英文字符，建议大驼峰法则命名，如：User',
               },
             ]}
+            initialValue={entityName}
           >
             <Input placeholder="请输入实体名称，4-12 个英文字符，建议大驼峰法则命名，如：User" />
           </Form.Item>

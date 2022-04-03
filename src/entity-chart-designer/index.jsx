@@ -15,6 +15,7 @@ const { Header, Content } = Layout;
  */
 export default class EntityChartDesigner extends React.Component {
   ice; //ice 实例
+  currentEntity;
   entityNameFormRef = React.createRef();
 
   constructor(props) {
@@ -58,6 +59,7 @@ export default class EntityChartDesigner extends React.Component {
       return;
     }
 
+    this.currentEntity = component;
     let typeName = component.constructor.name;
     if (typeName === 'Entity') {
       this.setState({
@@ -168,6 +170,7 @@ export default class EntityChartDesigner extends React.Component {
       >
         <EntityPropertyEditor
           ice={this.ice}
+          currentEntity={this.currentEntity}
           onSave={() => {
             this.setState({
               ...this.state,
@@ -216,6 +219,7 @@ export default class EntityChartDesigner extends React.Component {
             <Button
               type="primary"
               onClick={() => {
+                this.currentEntity = null;
                 this.setState({
                   ...this.state,
                   isNewEntityModalVisible: true,
